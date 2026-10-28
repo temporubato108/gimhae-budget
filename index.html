@@ -193,14 +193,100 @@ function download(blob,name){const a=document.createElement('a'),url=URL.createO
 $('backupBtn').onclick=()=>{download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),filename('json'));toast('작업 파일을 저장했어요. 다른 기기에서도 이어할 수 있어요.');};$('restoreBtn').onclick=()=>$('restoreFile').click();
 $('restoreFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2000000)throw Error('작업 파일이 너무 커요.');const clean=normalize(JSON.parse(await file.text()));if(!confirm('이 파일의 작업을 불러올까요? 현재 작업은 바뀌어요.'))return;state=clean;refreshFields();changed();toast('저장한 작업을 불러왔어요.');}catch(err){toast(err.message==='작업 파일이 너무 커요.'?err.message:'작업 파일을 읽을 수 없어요. 이 앱에서 저장한 JSON 파일을 선택해요.');}finally{e.target.value='';}};
 // Canvas export uses only local text and vector drawing. No CDN, screenshot library or remote font required.
-function buildExport(){const width=1500,pad=76,inner=width-pad*2;const scratch=document.createElement('canvas'),ctx=scratch.getContext('2d');const font='"Malgun Gothic","Apple SD Gothic Neo",sans-serif';let y=0,draws=[];const rect=(x,yy,w,h,color,r=0)=>draws.push(c=>{c.fillStyle=color;c.beginPath();if(c.roundRect)c.roundRect(x,yy,w,h,r);else c.rect(x,yy,w,h);c.fill();});function text(s,x,yy,size=24,color='#173e3c',weight=400){draws.push(c=>{c.fillStyle=color;c.font=weight+' '+size+'px '+font;c.fillText(s,x,yy);});}function lines(s,max,size=24,weight=400){ctx.font=weight+' '+size+'px '+font;const out=[];for(const paragraph of String(s||'아직 작성하지 않음').split('\n')){let line='';if(!paragraph){out.push('');continue;}for(const ch of paragraph){if(ctx.measureText(line+ch).width>max&&line){out.push(line);line=ch;}else line+=ch;}out.push(line);}return out;}function block(label,value){const ls=lines(value,inner-52,24),h=65+ls.length*37+23;rect(pad,y,inner,h,'#ffffff',15);text(label,pad+26,y+39,26,'#0e746b',800);ls.forEach((s,j)=>text(s,pad+26,y+83+j*37,24));y+=h+18;}
-const gs=lines(state.groupName,inner,28,700);const extra=Math.max(0,gs.length-1)*38;rect(0,0,width,310+extra,'#123e39');text('김해 어린이 정책박람회 · 모의 시민예산',pad,65,24,'#bbdbca',700);text('우리 모둠의 정책 구상안',pad,128,48,'#ffffff',800);gs.forEach((s,j)=>text(s,pad,183+j*38,28,'#e9f4e8',700));const date=new Date().toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'});text(date,pad,263+Math.max(0,gs.length-1)*38,21,'#bbdbca');y=315+extra;
-y+=30;block('정책 이름',state.policyName||'이름을 정하는 중');block('대상 시민과 해결할 어려움',state.problem);block('공공데이터에서 확인한 근거',state.evidence);
-const t=totals();rect(pad,y,inner,230,'#e5efe8',16);text('모의 예산 1억원',pad+28,y+42,26,'#0e746b',800);text('금액이 정해진 사업 합계',pad+28,y+92,23);text(fmt(t.total),pad+28,y+148,43,'#123e39',800);text((t.remaining<0?'초과 금액: ':t.pending?'현재 잔액 (미정 제외): ':'남은 예산: ')+fmt(Math.abs(t.remaining)),pad+28,y+193,24,t.remaining<0?'#b34e24':'#173e3c',700);text(t.pending?'교사 협의 필요 '+t.pending+'개':'예산을 모두 쓰지 않아도 괜찮아요.',pad+740,y+93,25,t.pending?'#97611d':'#0e746b',700);text(t.remaining<0?'예산 초과 · 조정 필요':t.pending?'예산 미확정':'예산 범위 안에서 구상',pad+740,y+145,29,t.remaining<0?'#b34e24':'#173e3c',800);y+=260;
-text('선택한 사업과 예산',pad,y+28,30,'#123e39',800);y+=50;
-if(!state.items.length){block('선택한 사업','아직 담은 사업이 없어요.');}state.items.forEach((i,idx)=>{const c=getItem(i),title=lines((idx+1)+'. '+c.name,inner-52,26,800),desc=lines(c.desc+(i.type==='card'?'\n살펴볼 지표: '+c.data+'\n추가 확인: '+c.check:''),inner-52,21);const meta=i.type==='card'?'모의 단가 '+fmt(c.price)+' / '+c.unit+' × '+i.qty+' = '+fmt(c.total):c.pending?'자유 사업 · 교사 협의 필요 · 합계에서 제외':'자유 사업 · 교사와 협의한 전체 금액 '+fmt(c.total);const ml=lines(meta,inner-52,23,700);const h=27+title.length*37+desc.length*31+ml.length*35+28;rect(pad,y,inner,h,'#ffffff',13);let iy=y+37;title.forEach(s=>{text(s,pad+26,iy,26,'#173e3c',800);iy+=37;});desc.forEach(s=>{text(s,pad+26,iy,21,'#617473');iy+=31;});iy+=10;ml.forEach(s=>{text(s,pad+26,iy,23,c.pending?'#97611d':'#0e746b',700);iy+=35;});y+=h+14;});
-y+=12;block('이용과 운영 방법',state.operation);block('기대하는 변화와 더 확인할 점',state.reflection);const foot=lines('모든 사업카드의 단가는 수업용 가상 금액이며 실제 견적이 아닙니다. 교사 협의 필요 사업은 합계에 포함되지 않았습니다. 이 구상안은 정책박람회 피드백을 거쳐 수정합니다.',inner,20);foot.forEach(s=>{text(s,pad,y+24,20,'#677975');y+=29;});const height=y+48;if(height>30000)throw Error('이미지 내용이 너무 길어요. 설명을 간추리거나 사업을 나누어 저장해 주세요.');const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const c=canvas.getContext('2d');c.fillStyle='#f4f7f1';c.fillRect(0,0,width,height);draws.forEach(fn=>fn(c));return canvas;}
+function buildExport(){
+  const width=1500,pad=76,inner=width-pad*2;
+  const scratch=document.createElement('canvas'),ctx=scratch.getContext('2d');
+  const font='"Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  const colors={ink:'#173e3c',dark:'#123e39',teal:'#0e746b',muted:'#617473',paper:'#f4f7f1',budget:'#e5efe8',amber:'#97611d',red:'#b34e24'};
+  let y=0;const draws=[];
+  function rect(x,top,w,h,color,r=0){draws.push(c=>{c.fillStyle=color;c.beginPath();if(c.roundRect)c.roundRect(x,top,w,h,r);else c.rect(x,top,w,h);c.fill();});}
+  function text(s,x,baseline,size=24,color=colors.ink,weight=400){draws.push(c=>{c.fillStyle=color;c.font=weight+' '+size+'px '+font;c.fillText(s,x,baseline);});}
+  function lines(value,max,size=24,weight=400){
+    ctx.font=weight+' '+size+'px '+font;const out=[];
+    for(const paragraph of String(value||'아직 작성하지 않음').split('\n')){
+      let line='';if(!paragraph){out.push('');continue;}
+      for(const ch of paragraph){if(ctx.measureText(line+ch).width>max&&line){out.push(line);line=ch;}else line+=ch;}
+      out.push(line);
+    }
+    return out;
+  }
+  function infoLayout(label,value,w=inner,size=24,weight=400){
+    const content=lines(value,w-52,size,weight),lineHeight=Math.ceil(size*1.54);
+    return {label,content,size,weight,lineHeight,height:82+content.length*lineHeight+16};
+  }
+  function drawInfo(box,x,top,w=inner,height=box.height){
+    rect(x,top,w,height,'#ffffff',15);text(box.label,x+26,top+39,26,colors.teal,800);
+    box.content.forEach((line,j)=>text(line,x+26,top+80+j*box.lineHeight,box.size,colors.ink,box.weight));
+  }
+  function block(label,value,size=24,weight=400){const box=infoLayout(label,value,inner,size,weight);drawInfo(box,pad,y);y+=box.height+18;}
+
+  const group=lines(state.groupName,inner,28,700),headerExtra=Math.max(0,group.length-1)*38;
+  rect(0,0,width,310+headerExtra,colors.dark);
+  text('김해 어린이 정책박람회 · 모의 시민예산',pad,65,24,'#bbdbca',700);
+  text('우리 모둠의 정책 구상안',pad,128,48,'#ffffff',800);
+  group.forEach((line,j)=>text(line,pad,183+j*38,28,'#e9f4e8',700));
+  text(new Date().toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'}),pad,263+headerExtra,21,'#bbdbca');
+  y=345+headerExtra;
+
+  // A larger, bold policy name remains a full-width heading card.
+  block('정책 이름',state.policyName||'이름을 정하는 중',42,800);
+
+  // Two description cards on the left; one budget panel spanning both on the right.
+  const gap=24,leftWidth=730,rightWidth=inner-leftWidth-gap,rightX=pad+leftWidth+gap;
+  const problem=infoLayout('대상 시민과 해결할 어려움',state.problem,leftWidth);
+  const evidence=infoLayout('공공데이터에서 확인한 근거',state.evidence,leftWidth);
+  const t=totals(),budgetGroups=[];let budgetY=42;
+  function budgetText(value,size,color,weight,spaceAfter=12){
+    const content=lines(value,rightWidth-56,size,weight),lineHeight=Math.ceil(size*1.4);
+    budgetGroups.push({content,size,color,weight,baseline:budgetY,lineHeight});
+    budgetY+=(content.length-1)*lineHeight+lineHeight+spaceAfter;
+  }
+  budgetText('모의 예산 1억원',26,colors.teal,800,9);
+  budgetText('금액이 정해진 사업 합계',23,colors.ink,400,10);
+  budgetText(fmt(t.total),43,colors.dark,800,10);
+  budgetText((t.remaining<0?'초과 금액: ':t.pending?'현재 잔액 (미정 제외): ':'남은 예산: ')+fmt(Math.abs(t.remaining)),24,t.remaining<0?colors.red:colors.ink,700,15);
+  budgetText(t.pending?'교사 협의 필요 '+t.pending+'개':'예산을 모두 쓰지 않아도 괜찮아요.',25,t.pending?colors.amber:colors.teal,700,9);
+  budgetText(t.remaining<0?'예산 초과 · 조정 필요':t.pending?'예산 미확정':'예산 범위 안에서 구상',29,t.remaining<0?colors.red:colors.ink,800,0);
+  const pairHeight=Math.max(problem.height+18+evidence.height,budgetY+12);
+  const extraSpace=(pairHeight-problem.height-evidence.height-18)/2;
+  drawInfo(problem,pad,y,leftWidth,problem.height+extraSpace);
+  drawInfo(evidence,pad,y+problem.height+extraSpace+18,leftWidth,evidence.height+extraSpace);
+  rect(rightX,y,rightWidth,pairHeight,colors.budget,16);
+  budgetGroups.forEach(g=>g.content.forEach((line,j)=>text(line,rightX+28,y+g.baseline+j*g.lineHeight,g.size,g.color,g.weight)));
+  y+=pairHeight+34;
+
+  text('선택한 사업과 예산',pad,y+28,30,colors.dark,800);y+=50;
+  // Three columns per row; each row expands to fit its longest card.
+  const cardGap=18,cardWidth=(inner-cardGap*2)/3,cardInner=cardWidth-44;
+  if(!state.items.length){block('선택한 사업','아직 담은 사업이 없어요.');}
+  for(let offset=0;offset<state.items.length;offset+=3){
+    const row=state.items.slice(offset,offset+3).map((item,j)=>{
+      const c=getItem(item),title=lines((offset+j+1)+'. '+c.name,cardInner,26,800);
+      const desc=lines(c.desc,cardInner,21);
+      const value=item.type==='card'?'모의 단가 '+fmt(c.price)+' / '+c.unit+'\n수량 '+item.qty+' · 합계 '+fmt(c.total):c.pending?'자유 사업 · 교사 협의 필요\n금액 미확정 · 합계에서 제외':'자유 사업 · 교사와 협의한 금액\n합계 '+fmt(c.total);
+      const meta=lines(value,cardInner,23,700),metaHeight=meta.length*35;
+      return {c,title,desc,meta,metaHeight,height:26+title.length*37+desc.length*31+18+metaHeight+22};
+    });
+    const rowHeight=Math.max(...row.map(box=>box.height));
+    row.forEach((box,j)=>{
+      const x=pad+j*(cardWidth+cardGap);rect(x,y,cardWidth,rowHeight,'#ffffff',13);
+      let iy=y+37;
+      box.title.forEach(line=>{text(line,x+22,iy,26,colors.ink,800);iy+=37;});
+      box.desc.forEach(line=>{text(line,x+22,iy,21,colors.muted);iy+=31;});
+      const metaTop=y+rowHeight-22-(box.meta.length-1)*35;
+      box.meta.forEach((line,k)=>text(line,x+22,metaTop+k*35,23,box.c.pending?colors.amber:colors.teal,700));
+    });
+    y+=rowHeight+18;
+  }
+  y+=12;block('이용과 운영 방법',state.operation);block('기대하는 변화와 더 확인할 점',state.reflection);
+  const footer=lines('모든 사업카드의 단가는 수업용 가상 금액이며 실제 견적이 아닙니다. 교사 협의 필요 사업은 합계에 포함되지 않았습니다. 이 구상안은 정책박람회 피드백을 거쳐 수정합니다.',inner,20);
+  footer.forEach(line=>{text(line,pad,y+24,20,'#677975');y+=29;});
+  const height=y+48;if(height>30000)throw Error('이미지 내용이 너무 길어요. 설명을 간추리거나 사업을 나누어 저장해 주세요.');
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const c=canvas.getContext('2d');c.fillStyle=colors.paper;c.fillRect(0,0,width,height);draws.forEach(draw=>draw(c));return canvas;
+}
 $('exportBtn').onclick=async()=>{if(!state.groupName.trim()){toast('모둠 이름을 먼저 입력해 주세요.');$('groupName').focus();$('groupName').scrollIntoView({behavior:'smooth',block:'center'});return;}const b=$('exportBtn');b.disabled=true;try{if(document.fonts?.ready)await document.fonts.ready;exportCanvas=buildExport();$('previewImage').src=exportCanvas.toDataURL('image/png');const t=totals();$('previewNote').textContent=(t.remaining<0?'예산을 초과했어요. 조정이 필요한 구상안으로 표시됩니다. ':t.pending?'교사 협의가 필요한 사업은 금액 미확정으로 표시됩니다. ':'모둠 이름과 사업·수량·예산이 맞는지 확인해요. ')+ 'PNG 이미지로 저장할 수 있어요.';$('previewDialog').showModal();}catch(e){toast(e.message||'이미지를 만들지 못했어요.');}finally{b.disabled=false;}};
 $('downloadPng').onclick=()=>{if(!exportCanvas)return;exportCanvas.toBlob(blob=>{if(blob){download(blob,filename('png'));toast('결과 이미지를 다운로드했어요.');}else toast('이미지를 저장하지 못했어요. 다시 시도해 주세요.');},'image/png');};
 $('cardTotal').textContent='사업카드 '+CARDS.length+'개 · '+Object.keys(RAW).length+'개 분야';$('customCategory').innerHTML=Object.entries(CATS).map(([id,c])=>'<option value="'+id+'">'+esc(c.name)+'</option>').join('');refreshFields();renderFilters();renderCards();renderSelected();if(!storageOK){$('saveStatus').textContent='자동 저장을 사용할 수 없어요. 작업 파일을 저장해 주세요.';$('saveStatus').classList.add('storage-error');}
 </script></body></html>
+
