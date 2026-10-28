@@ -210,15 +210,15 @@ function buildExport(){
     }
     return out;
   }
-  function infoLayout(label,value,w=inner,size=24,weight=400){
+  function infoLayout(label,value,w=inner,size=24,weight=400,contentGap=0){
     const content=lines(value,w-52,size,weight),lineHeight=Math.ceil(size*1.54);
-    return {label,content,size,weight,lineHeight,height:82+content.length*lineHeight+16};
+    return {label,content,size,weight,lineHeight,contentTop:80+contentGap,height:82+content.length*lineHeight+16+contentGap};
   }
   function drawInfo(box,x,top,w=inner,height=box.height){
     rect(x,top,w,height,'#ffffff',15);text(box.label,x+26,top+39,26,colors.teal,800);
-    box.content.forEach((line,j)=>text(line,x+26,top+80+j*box.lineHeight,box.size,colors.ink,box.weight));
+    box.content.forEach((line,j)=>text(line,x+26,top+box.contentTop+j*box.lineHeight,box.size,colors.ink,box.weight));
   }
-  function block(label,value,size=24,weight=400){const box=infoLayout(label,value,inner,size,weight);drawInfo(box,pad,y);y+=box.height+18;}
+  function block(label,value,size=24,weight=400,contentGap=0){const box=infoLayout(label,value,inner,size,weight,contentGap);drawInfo(box,pad,y);y+=box.height+18;}
 
   const group=lines(state.groupName,inner,28,700),headerExtra=Math.max(0,group.length-1)*38;
   rect(0,0,width,310+headerExtra,colors.dark);
@@ -229,7 +229,7 @@ function buildExport(){
   y=345+headerExtra;
 
   // A larger, bold policy name remains a full-width heading card.
-  block('정책 이름',state.policyName||'이름을 정하는 중',42,800);
+  block('정책 이름',state.policyName||'이름을 정하는 중',42,800,32);
 
   // Two description cards on the left; one budget panel spanning both on the right.
   const gap=24,leftWidth=730,rightWidth=inner-leftWidth-gap,rightX=pad+leftWidth+gap;
@@ -245,8 +245,8 @@ function buildExport(){
   budgetText('금액이 정해진 사업 합계',23,colors.ink,400,10);
   budgetText(fmt(t.total),43,colors.dark,800,10);
   budgetText((t.remaining<0?'초과 금액: ':t.pending?'현재 잔액 (미정 제외): ':'남은 예산: ')+fmt(Math.abs(t.remaining)),24,t.remaining<0?colors.red:colors.ink,700,15);
-  budgetText(t.pending?'교사 협의 필요 '+t.pending+'개':'예산을 모두 쓰지 않아도 괜찮아요.',25,t.pending?colors.amber:colors.teal,700,9);
-  budgetText(t.remaining<0?'예산 초과 · 조정 필요':t.pending?'예산 미확정':'예산 범위 안에서 구상',29,t.remaining<0?colors.red:colors.ink,800,0);
+  if(t.pending)budgetText('교사 협의 필요 '+t.pending+'개',25,colors.amber,700,9);
+  if(t.remaining<0||t.pending)budgetText(t.remaining<0?'예산 초과 · 조정 필요':'예산 미확정',29,t.remaining<0?colors.red:colors.ink,800,0);
   const pairHeight=Math.max(problem.height+18+evidence.height,budgetY+12);
   const extraSpace=(pairHeight-problem.height-evidence.height-18)/2;
   drawInfo(problem,pad,y,leftWidth,problem.height+extraSpace);
